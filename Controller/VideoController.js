@@ -2,21 +2,12 @@ const { default: slugify } = require("slugify");
 const Video = require("../Models/VideoModel.js");
 const fs = require('fs');
 const User = require("../Models/UserModel.js");
+const Category = require("../Models/CategoryModel.js");
 const createVideo = async (req, res) => {
     try {
-        const { title, desc, category, slug } = req.fields;
-        const { thumb, video } = req.files;
+        const { title, desc, category, slug, thumb,video } = req.body;
 
-        const videos = new Video({ title, desc, category, slug: slugify(title), createdBy: req.user._id })
-        if (thumb) {
-            videos.thumb.data = fs.readFileSync(thumb.path)
-            videos.thumb.contentType = thumb.type
-        }
-        if (video) {
-            videos.video.data = fs.readFileSync(video.path)
-            videos.video.contentType = video.type
-        }
-        await videos.save()
+        const videos = await Video.create({ title, desc, category, slug: slugify(title),thumb,video, createdBy: req.user._id })
         res.json({
             mes: "Video created.",
             videos
@@ -28,36 +19,16 @@ const createVideo = async (req, res) => {
 
 const allVideos = async(req,res) => {
     try {
-        const videos = await Video.find().populate('category').populate('createdBy').select("-thumb").select("-video").sort("createdAt")
+        // const videos = await Video.find().populate('category').populate('createdBy').sort({createdAt: -1})
+        const videos = await Video.aggregate([{$sample : {size: 20}}])
+        await User.populate(videos,{path: "createdBy"})
+        await Category.populate(videos,{path: "category"})
         return res.json(videos)
     } catch (error) {
         console.log(error)
     }
 }
 
-const getThumb = async (req, res) => {
-    try {
-        const thumb = await Video.findById(req.params.id).select("thumb")
-        if (thumb.thumb.data) {
-            res.set('Content-type', thumb.thumb.contentType)
-            return res.status(200).send(thumb.thumb.data)
-        }
-    } catch (error) {
-        console.log(error)
-    }
-}
-
-const getvideo = async (req, res) => {
-    try {
-        const video = await Video.findById(req.params.id).select("video")
-        if (video.video.data) {
-            res.set('Content-type', video.video.contentType)
-            return res.status(200).send(video.video.data)
-        }
-    } catch (error) {
-        console.log(error)
-    }
-}
 
 const deletevideo = async (req, res) => {
     try {
@@ -72,7 +43,7 @@ const addView = async (req, res) => {
     try {
         await Video.findByIdAndUpdate(req.params.id, {
             $inc: { views: 1 }
-        }, { new: true }).select("-thumb").select("-video")
+        }, { new: true })
         res.json("view added.")
     } catch (error) {
         console.log(error)
@@ -81,7 +52,7 @@ const addView = async (req, res) => {
 
 const videodetail = async (req, res) => {
     try {
-        const video = await Video.find({ slug: req.params.slug }).populate('createdBy','_id name email subscribedUser subscribers').populate('category').select("-thumb").select("-video")
+        const video = await Video.find({ slug: req.params.slug }).populate('createdBy','_id pic name email subscribedUser subscribers').populate('category')
         res.json(video)
     } catch (error) {
         console.log(error)
@@ -90,7 +61,7 @@ const videodetail = async (req, res) => {
 
 const trendingVideo = async (req, res) => {
     try {
-        const videos = await Video.find({}).populate('createdBy').sort({ views: -1 }).select("-thumb").select("-video")
+        const videos = await Video.find({}).populate('createdBy').sort({ views: -1 })
         res.json(videos)
     } catch (error) {
         console.log(error)
@@ -122,4 +93,4 @@ const dislikes = async (req, res) => {
         console.log(error)
     }
 }
-module.exports = { createVideo, allVideos, getvideo, getThumb, deletevideo, addView, videodetail, trendingVideo, likes, dislikes }
+module.exports = { createVideo, allVideos,  deletevideo, addView, videodetail, trendingVideo, likes, dislikes }

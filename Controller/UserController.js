@@ -5,8 +5,7 @@ const jwt = require('jsonwebtoken');
 const Video = require("../Models/VideoModel.js");
 const RegisterUser = async (req, res) => {
     try {
-        const { name, email, pass } = req.fields;
-        const { pic } = req.files;
+        const { name, email, pass, pic } = req.body;
 
         const nameCheck = await User.findOne({ name })
         if (nameCheck) {
@@ -18,13 +17,9 @@ const RegisterUser = async (req, res) => {
             return res.json({ error: "Email already used." })
         }
         const hashPass = await bcrypt.hash(pass, 10)
-        const UserDoc = new User({ ...req.fields, pass: hashPass })
-        if (pic) {
-            UserDoc.pic.data = fs.readFileSync(pic.path)
-            UserDoc.pic.contentType = pic.type
-        }
-        await UserDoc.save()
-        res.json({
+        const UserDoc = await User.create({ name,email,pic, pass: hashPass })
+        
+        return res.json({
             mes: "User created successfully.",
             UserDoc
         })
@@ -62,17 +57,6 @@ const LoginUser = async (req, res) => {
     }
 }
 
-const profilePic = async (req, res) => {
-    try {
-        const user = await User.findById(req.params.id).select("pic")
-        if (user.pic.data) {
-            res.set('Content-type', user.pic.contentType)
-            return res.status(200).send(user.pic.data)
-        }
-    } catch (error) {
-        console.log(error)
-    }
-}
 
 const userdata = async (req, res) => {
     try {
@@ -80,8 +64,8 @@ const userdata = async (req, res) => {
         if (token) {
             jwt.verify(token, process.env.SECRET, {}, async (err, user) => {
                 if (err) throw err;
-                const { name, email, _id, subscribers,subscribedUser } = await User.findById(user._id)
-                res.json({ _id, name, email, token, subscribers,subscribedUser })
+                const { name, email, _id,pic, subscribers,subscribedUser } = await User.findById(user._id)
+                res.json({ _id, name, email,pic, token, subscribers,subscribedUser })
             })
         }
     } catch (error) {
@@ -128,7 +112,7 @@ const unsubscribe = async (req, res) => {
 
 const mySubscribed = async(req,res) => {
     try {
-        const channels = await User.findById(req.user._id).populate('subscribedUser','email name _id subscribers').select("-pic").select("-pass")
+        const channels = await User.findById(req.user._id).populate('subscribedUser','email pic name _id subscribers').select("-pass")
         res.json(channels)
     } catch (error) {
         console.log(error)
@@ -137,7 +121,7 @@ const mySubscribed = async(req,res) => {
 
 const channelDetails = async(req,res) => {
     try {
-        const userdata = await User.findById(req.params.id).select("-pic").select("-pass")
+        const userdata = await User.findById(req.params.id).select("-pass")
         res.json(userdata)
     } catch (error) {
         console.log(error)
@@ -147,10 +131,10 @@ const channelDetails = async(req,res) => {
 const channelVideo = async(req,res)=>{
     try {
         // const data = await User.findById(req.params.id).select("-pic").select("-pass")
-        const video = await Video.find({createdBy: req.params.id}).populate('category').populate('createdBy').select("-thumb").select("-video").sort("createdAt")
+        const video = await Video.find({createdBy: req.params.id}).populate('category').populate('createdBy').sort({createdAt:-1})
         res.json(video)
     } catch (error) {
         console.log(error)
     }
 }
-module.exports = { RegisterUser, LoginUser, profilePic, userdata, logout, subscribe, unsubscribe,mySubscribed,channelDetails, channelVideo }
+module.exports = { RegisterUser, LoginUser, userdata, logout, subscribe, unsubscribe,mySubscribed,channelDetails, channelVideo }
