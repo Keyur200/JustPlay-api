@@ -10,7 +10,7 @@ const cookieParser = require('cookie-parser')
 dotenv.config()
 
 const app = express()
-app.use(cors({origin: ["https://just-play-api-eight.vercel.app"],methods: ["GET","PUT","POST","DELETE"], credentials:true}))
+app.use(cors({origin: ["https://justplay-olive.vercel.app"],methods: ["GET","PUT","POST","DELETE"], credentials:true}))
 app.use(express.json())
 app.use(cookieParser())
 
